@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Мемная соцсеть</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0f0f14; color: #eaeaf2;
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: #16161f; padding: 12px 20px; display: flex; gap: 12px; align-items: center;
+      border-bottom: 1px solid #23232f;
+    }
+    header h1 { font-size: 18px; margin: 0; flex: 1; }
+    button {
+      background: #7c5cff; color: white; border: 0; padding: 8px 14px;
+      border-radius: 8px; cursor: pointer; font-size: 14px;
+    }
+    button:hover { background: #6a4ae0; }
+    button.ghost { background: #23232f; }
+    main { max-width: 640px; margin: 20px auto; padding: 0 12px; }
+    .card {
+      background: #17171f; border: 1px solid #23232f; border-radius: 12px;
+      margin-bottom: 16px; overflow: hidden;
+    }
+    .card img { width: 100%; display: block; background: #000; }
+    .card .meta { padding: 10px 14px; display: flex; gap: 10px; align-items: center; font-size: 14px; color: #a0a0b8; }
+    .card .caption { padding: 0 14px 12px; font-size: 15px; }
+    .card .actions { padding: 0 14px 14px; display: flex; gap: 10px; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+      align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal.open { display: flex; }
+    .modal .box {
+      background: #17171f; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px;
+      border: 1px solid #23232f;
+    }
+    input, textarea, file-upload {
+      width: 100%; padding: 10px; margin: 6px 0 12px;
+      background: #0f0f14; border: 1px solid #2c2c3d; color: #eaeaf2; border-radius: 8px;
+      font-family: inherit; font-size: 14px;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button { flex: 1; }
+    .tabs button.active { background: #7c5cff; }
+    .hidden { display: none; }
+    .empty { text-align: center; padding: 60px 20px; color: #707088; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🐸 Мемная соцсеть</h1>
+  <button id="uploadBtn" class="hidden">+ Загрузить</button>
+  <button id="authBtn">Войти</button>
+</header>
+
+<main>
+  <div class="tabs">
+    <button id="tabAll" class="active">Все мемы</button>
+    <button id="tabMine" class="hidden">Мои мемы</button>
+  </div>
+  <div id="feed"></div>
+</main>
+
+<!-- Модалка авторизации -->
+<div class="modal" id="authModal">
+  <div class="box">
+    <h3 id="authTitle">Вход</h3>
+    <input id="authUsername" placeholder="username"/>
+    <input id="authEmail" placeholder="email" class="hidden"/>
+    <input id="authPassword" type="password" placeholder="пароль"/>
+    <button id="authSubmit">Войти</button>
+    <button id="authSwitch" class="ghost" style="margin-top:8px;width:100%">Нет аккаунта? Регистрация</button>
+  </div>
+</div>
+
+<!-- Модалка загрузки -->
+<div class="modal" id="uploadModal">
+  <div class="box">
+    <h3>Загрузить мем</h3>
+    <input type="file" id="memeFile" accept="image/*"/>
+    <textarea id="memeCaption" placeholder="Подпись..."></textarea>
+    <button id="uploadSubmit">Опубликовать</button>
+  </div>
+</div>
+
+<script>
+const API = "";  // тот же origin
+let token = localStorage.getItem("token");
+let me = null;
+
+function authHeaders() {
+  return token ? { "Authorization": "Bearer " + token } : {};
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || res.statusText);
+  }
+  return res.json();
+}
+
+// --- Авторизация ---
+const authModal = document.getElementById("authModal");
+const authBtn = document.getElementById("authBtn");
+let registerMode = false;
+
+authBtn.onclick = () => {
+  if (token) {
+    if (confirm("Выйти?")) {
+      localStorage.removeItem("token");
+      token = null; me = null;
+      updateAuthUI(); loadFeed();
+    }
+    return;
+  }
+  authModal.classList.add("open");
+};
+
+document.getElementById("authSwitch").onclick = () => {
+  registerMode = !registerMode;
+  document.getElementById("authTitle").textContent = registerMode ? "Регистрация" : "Вход";
+  document.getElementById("authEmail").classList.toggle("hidden", !registerMode);
+  document.getElementById("authSubmit").textContent = registerMode ? "Создать аккаунт" : "Войти";
+};
+
+document.getElementById("authSubmit").onclick = async () => {
+  const username = document.getElementById("authUsername").value.trim();
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  try {
+    const endpoint = registerMode ? "/api/auth/register" : "/api/auth/login";
+    const body = registerMode ? { username, email, password } : { username, password };
+    const data = await api(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    token = data.access_token;
+    localStorage.setItem("token", token);
+    me = data.user;
+    authModal.classList.remove("open");
+    updateAuthUI(); loadFeed();
+  } catch (e) {
+    alert("Ошибка: " + e.message);
+  }
+};
+
+async function loadMe() {
+  if (!token) return;
+  try { me = await api("/api/auth/me", { headers: authHeaders() }); }
+  catch { token = null; localStorage.removeItem("token"); }
+}
+
+function updateAuthUI() {
+  authBtn.textContent = me ? "@" + me.username + " (выход)" : "Войти";
+  document.getElementById("uploadBtn").classList.toggle("hidden", !me);
+  document.getElementById("tabMine").classList.toggle("hidden", !me);
+}
+
+// --- Загрузка мема ---
+const uploadModal = document.getElementById("uploadModal");
+document.getElementById("uploadBtn").onclick = () => uploadModal.classList.add("open");
+
+document.getElementById("uploadSubmit").onclick = async () => {
+  const file = document.getElementById("memeFile").files[0];
+  const caption = document.getElementById("memeCaption").value;
+  if (!file) return alert("Выберите картинку");
+
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("caption", caption);
+
+  try {
+    await api("/api/memes/", { method: "POST", headers: authHeaders(), body: fd });
+    uploadModal.classList.remove("open");
+    document.getElementById("memeFile").value = "";
+    document.getElementById("memeCaption").value = "";
+    loadFeed();
+  } catch (e) {
+    alert("Ошибка: " + e.message);
+  }
+};
+
+// --- Лента ---
+let currentTab = "all";
+
+async function loadFeed() {
+  const feed = document.getElementById("feed");
+  feed.innerHTML = "<div class='empty'>Загрузка...</div>";
+  try {
+    const path = currentTab === "mine" ? "/api/memes/my" : "/api/memes/";
+    const memes = await api(path, { headers: authHeaders() });
+    if (!memes.length) {
+      feed.innerHTML = "<div class='empty'>Пока мемов нет 😢</div>";
+      return;
+    }
+    feed.innerHTML = memes.map(m => `
+      <div class="card" data-id="${m.id}">
+        <img src="${m.image_url}" alt="meme" loading="lazy"/>
+        <div class="meta">@${m.author.username} · ${new Date(m.created_at).toLocaleString("ru")}</div>
+        ${m.caption ? `<div class="caption">${escapeHtml(m.caption)}</div>` : ""}
+        <div class="actions">
+          <button class="like" data-id="${m.id}">
+            ${m.liked_by_me ? "❤️" : "🤍"} ${m.likes_count}
+          </button>
+          ${me && m.author.username === me.username
+            ? `<button class="ghost delete" data-id="${m.id}">Удалить</button>` : ""}
+        </div>
+      </div>
+    `).join("");
+
+    feed.querySelectorAll(".like").forEach(btn => {
+      btn.onclick = async () => {
+        if (!token) { authModal.classList.add("open"); return; }
+        await api(`/api/memes/${btn.dataset.id}/like`, { method: "POST", headers: authHeaders() });
+        loadFeed();
+      };
+    });
+    feed.querySelectorAll(".delete").forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm("Удалить мем?")) return;
+        await api(`/api/memes/${btn.dataset.id}`, { method: "DELETE", headers: authHeaders() });
+        loadFeed();
+      };
+    });
+  } catch (e) {
+    feed.innerHTML = "<div class='empty'>Ошибка загрузки: " + e.message + "</div>";
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+}
+
+document.getElementById("tabAll").onclick = () => {
+  currentTab = "all";
+  document.getElementById("tabAll").classList.add("active");
+  document.getElementById("tabMine").classList.remove("active");
+  loadFeed();
+};
+document.getElementById("tabMine").onclick = () => {
+  currentTab = "mine";
+  document.getElementById("tabMine").classList.add("active");
+  document.getElementById("tabAll").classList.remove("active");
+  loadFeed();
+};
+
+// --- init ---
+(async () => {
+  await loadMe();
+  updateAuthUI();
+  loadFeed();
+})();
+</script>
+</body>
+</html>
