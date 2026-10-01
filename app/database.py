@@ -43,25 +43,13 @@ def _prepare_asyncpg_url(url: str) -> tuple[str, dict]:
 
 DATABASE_URL, SSL_CONNECT_ARGS = _prepare_asyncpg_url(raw_url)
 
-from sqlalchemy.pool import NullPool # Добавьте этот импорт
+from sqlalchemy.pool import NullPool
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    # Проверяет соединение перед каждым использованием.
-    # Если оно "мертво", создаёт новое. Это главное лекарство.
-    pool_pre_ping=True,
-    # Перерабатывает соединения каждые 5 минут (300 секунд).
-    # Neon закрывает неактивные соединения примерно через 5 минут,
-    # поэтому мы перерабатываем их чуть раньше.
-    pool_recycle=300,
-    # Использует последнее созданное соединение (LIFO).
-    # Помогает избежать использования "старых" соединений,
-    # которые могли быть закрыты пулером.
-    pool_use_lifo=True,
-    # Отключает пул соединений на стороне SQLAlchemy.
-    # Это заставляет SQLAlchemy каждый раз создавать новое соединение,
-    # что полностью исключает использование "мертвых" соединений из пула.
+    # NullPool: новое соединение на каждый запрос, никакого пула.
+    # Это обходит проблему с Neon pooler, который рвёт «мёртвые» соединения.
     poolclass=NullPool,
     connect_args={
         **SSL_CONNECT_ARGS,
@@ -69,12 +57,10 @@ engine = create_async_engine(
         "prepared_statement_cache_size": 0,
         "server_settings": {
             "application_name": "memes-social",
-            # Отключаем JIT-компиляцию, которая может вызывать проблемы с соединением.
             "jit": "off",
         },
     },
 )
-
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
