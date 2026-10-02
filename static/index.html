@@ -46,6 +46,7 @@
       font-size: 14px;
       text-transform: uppercase;
       flex: 1;
+      cursor: pointer;
     }
     header .logo::before { content: "// "; color: var(--muted); }
 
@@ -103,6 +104,7 @@
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--muted);
+      align-items: center;
     }
     .card .head .author { color: var(--text); }
     .card .caption {
@@ -146,7 +148,10 @@
       padding: 24px;
       width: 100%;
       max-width: 380px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
+    .modal .box.wide { max-width: 720px; }
     .modal h3 {
       text-transform: uppercase;
       letter-spacing: 2px;
@@ -206,12 +211,110 @@
       letter-spacing: 1px;
       min-height: 14px;
     }
+
+    /* ==== AVATARS ==== */
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #222;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      font-size: 12px;
+      color: #888;
+      text-transform: uppercase;
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar.sm { width: 24px; height: 24px; font-size: 10px; }
+
+    .head-row { display: flex; align-items: center; gap: 8px; }
+
+    /* ==== COMMENTS ==== */
+    .comments {
+      border-top: 1px solid var(--line);
+      padding: 10px 14px;
+      background: #0d0d0d;
+    }
+    .comments-list { margin-bottom: 10px; }
+    .comment {
+      display: flex; gap: 8px; padding: 6px 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .comment:last-child { border-bottom: 0; }
+    .comment .body { flex: 1; }
+    .comment .body .who {
+      font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+    .comment .body .txt { font-size: 13px; word-wrap: break-word; }
+    .comment .del {
+      background: transparent; border: 0;
+      color: var(--muted); cursor: pointer;
+      font-size: 14px; padding: 0 4px;
+    }
+    .comment .del:hover { background: transparent; color: #ff5555; }
+    .comment-form { display: flex; gap: 8px; }
+    .comment-form input {
+      flex: 1; margin: 0; padding: 6px 10px; font-size: 12px;
+    }
+    .comment-form button { padding: 6px 10px; }
+
+    /* ==== PROFILE ==== */
+    .profile-box {
+      border: 1px solid var(--line);
+      padding: 20px; margin-bottom: 24px;
+      display: flex; gap: 16px; align-items: flex-start;
+    }
+    .profile-box .big-avatar {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: #1a1a1a; overflow: hidden; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #444; text-transform: uppercase;
+    }
+    .profile-box .big-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-info h2 {
+      font-size: 18px; margin-bottom: 6px;
+      text-transform: none; letter-spacing: 0;
+    }
+    .profile-info .status { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    .profile-info .bio { font-size: 13px; white-space: pre-wrap; }
+
+    /* ==== ADMIN ==== */
+    .admin-table {
+      width: 100%; border-collapse: collapse; font-size: 12px;
+    }
+    .admin-table th, .admin-table td {
+      border: 1px solid var(--line); padding: 6px 8px; text-align: left;
+    }
+    .admin-table th {
+      background: #141414; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px; font-size: 10px;
+    }
+    .admin-table tr.banned td { color: #ff6666; text-decoration: line-through; }
+    .admin-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .admin-actions button { padding: 3px 6px; font-size: 10px; }
+    .admin-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .admin-tabs button { font-size: 10px; }
+    .admin-tabs button.active { background: var(--text); color: var(--bg); }
+
+    .section-title {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
+
 <header>
-  <div class="logo">memes</div>
+  <div class="logo" id="logoHome">memes</div>
   <button id="uploadBtn" class="primary hidden">+ загрузить</button>
+  <button id="adminBtn" class="hidden">админка</button>
   <button id="authBtn">войти</button>
 </header>
 
@@ -223,7 +326,7 @@
   <div id="feed"></div>
 </main>
 
-<!-- auth modal -->
+<!-- ========== AUTH MODAL ========== -->
 <div class="modal" id="authModal">
   <div class="box">
     <h3 id="authTitle">вход</h3>
@@ -235,7 +338,7 @@
   </div>
 </div>
 
-<!-- upload modal -->
+<!-- ========== UPLOAD MODAL ========== -->
 <div class="modal" id="uploadModal">
   <div class="box">
     <h3>новый мем</h3>
@@ -246,10 +349,37 @@
   </div>
 </div>
 
+<!-- ========== EDIT PROFILE MODAL ========== -->
+<div class="modal" id="editModal">
+  <div class="box">
+    <h3>редактировать профиль</h3>
+    <div class="error" id="editError"></div>
+    <input id="editAvatar" placeholder="URL аватарки (https://...)"/>
+    <input id="editStatus" placeholder="статус" maxlength="255"/>
+    <textarea id="editBio" placeholder="о себе" maxlength="500"></textarea>
+    <button class="primary" id="editSubmit">сохранить</button>
+    <div class="hint" id="editPasswordOpen">сменить пароль →</div>
+  </div>
+</div>
+
+<!-- ========== CHANGE PASSWORD MODAL ========== -->
+<div class="modal" id="pwModal">
+  <div class="box">
+    <h3>сменить пароль</h3>
+    <div class="error" id="pwError"></div>
+    <input id="pwOld" type="password" placeholder="старый пароль"/>
+    <input id="pwNew" type="password" placeholder="новый пароль"/>
+    <button class="primary" id="pwSubmit">сохранить</button>
+    <div class="hint" id="pwBack">назад →</div>
+  </div>
+</div>
+
 <script>
 const API = "";
 let token = localStorage.getItem("token");
 let me = null;
+let currentView = "feed"; // feed | profile | admin
+let currentUsername = null;
 
 const $ = id => document.getElementById(id);
 const headers = () => token ? { "Authorization": "Bearer " + token } : {};
@@ -259,8 +389,8 @@ async function api(path, opts = {}) {
   if (!res.ok) {
     let msg = res.statusText;
     try {
-      const data = await res.json();
-      msg = data.detail || msg;
+      const d = await res.json();
+      msg = d.detail || msg;
       if (Array.isArray(msg)) msg = msg.map(e => e.msg).join("; ");
     } catch {}
     throw new Error(msg);
@@ -269,24 +399,40 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-// ==== AUTH ====
-const authModal = $("authModal");
-const authError = $("authError");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+
+const fmtDate = iso => {
+  const d = new Date(iso), n = new Date(), s = (n - d) / 1000;
+  if (s < 60) return "только что";
+  if (s < 3600) return Math.floor(s/60) + " мин";
+  if (s < 86400) return Math.floor(s/3600) + " ч";
+  if (s < 86400*7) return Math.floor(s/86400) + " д";
+  return d.toLocaleDateString("ru");
+};
+
+const avatarHtml = (u, cls="") => {
+  const name = u.username || "?";
+  if (u.avatar) return `<div class="avatar ${cls}"><img src="${esc(u.avatar)}" alt=""/></div>`;
+  return `<div class="avatar ${cls}">${esc(name[0])}</div>`;
+};
+
+// ============ AUTH ============
+const authModal = $("authModal"), authError = $("authError");
 let registerMode = false;
 
-$("authBtn").onclick = () => {
-  if (token) {
-    if (confirm("Выйти из аккаунта?")) {
-      localStorage.removeItem("token");
-      token = null; me = null;
-      updateUI(); loadFeed();
-    }
-    return;
-  }
+function openAuthModal() {
   registerMode = false;
   syncAuthMode();
   authError.textContent = "";
   authModal.classList.add("open");
+}
+
+$("authBtn").onclick = () => {
+  if (token) {
+    logout();
+  } else {
+    openAuthModal();
+  }
 };
 
 $("authSwitch").onclick = () => {
@@ -300,15 +446,13 @@ function syncAuthMode() {
   $("authSubmit").textContent = registerMode ? "создать" : "войти";
   $("authSwitch").textContent = registerMode ? "есть аккаунт → войти" : "нет аккаунта → регистрация";
 }
+
 $("authSubmit").onclick = async () => {
   const username = $("authUsername").value.trim();
   const password = $("authPassword").value;
   authError.textContent = "";
 
-  if (!username || !password) {
-    authError.textContent = "заполните все поля";
-    return;
-  }
+  if (!username || !password) { authError.textContent = "заполните поля"; return; }
 
   try {
     const endpoint = registerMode ? "/api/register" : "/api/login";
@@ -324,7 +468,8 @@ $("authSubmit").onclick = async () => {
     $("authUsername").value = "";
     $("authPassword").value = "";
     updateUI();
-    loadFeed();
+    currentView = "feed";
+    render();
   } catch (e) {
     authError.textContent = e.message;
   }
@@ -332,24 +477,435 @@ $("authSubmit").onclick = async () => {
 
 async function loadMe() {
   if (!token) return;
-  try { me = await api("/api/me", { headers: headers() }); }
-  catch { token = null; localStorage.removeItem("token"); }
+  try {
+    me = await api("/api/me", { headers: headers() });
+  } catch {
+    token = null;
+    localStorage.removeItem("token");
+  }
+}
+
+function logout() {
+  if (!confirm("выйти из аккаунта?")) return;
+  localStorage.removeItem("token");
+  token = null;
+  me = null;
+  currentView = "feed";
+  updateUI();
+  render();
 }
 
 function updateUI() {
   if (me) {
-    const roleTag = me.role === "admin" ? " [admin]" : "";
-    $("authBtn").textContent = "@" + me.username + roleTag + " · выход";
+    $("authBtn").textContent = "@" + me.username + " · выход";
+    $("uploadBtn").classList.remove("hidden");
+    $("tabMine").classList.remove("hidden");
+    if (me.role === "admin") $("adminBtn").classList.remove("hidden");
+    else $("adminBtn").classList.add("hidden");
   } else {
     $("authBtn").textContent = "войти";
+    $("uploadBtn").classList.add("hidden");
+    $("tabMine").classList.add("hidden");
+    $("adminBtn").classList.add("hidden");
   }
-  $("uploadBtn").classList.toggle("hidden", !me);
-  $("tabMine").classList.toggle("hidden", !me);
 }
 
-// ==== UPLOAD ====
-const uploadModal = $("uploadModal");
-const uploadError = $("uploadError");
+// ============ FEED ============
+let currentTab = "all";
+
+async function loadFeed() {
+  const feed = $("feed");
+  feed.innerHTML = "<div class='empty'>загрузка...</div>";
+  try {
+    const path = currentTab === "mine" ? "/api/posts/my" : "/api/posts/";
+    const memes = await api(path, { headers: headers() });
+    if (!memes.length) {
+      feed.innerHTML = "<div class='empty'>пусто</div>";
+      return;
+    }
+    feed.innerHTML = memes.map(renderMemeCard).join("");
+    bindMemeEvents(feed);
+  } catch (e) {
+    feed.innerHTML = `<div class="empty">ошибка: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderMemeCard(m) {
+  const isAdmin = me && me.role === "admin";
+  const isOwner = me && m.author.username === me.username;
+  return `
+    <div class="card" data-id="${m.id}">
+      <div class="head">
+        <div class="head-row">
+          ${avatarHtml(m.author)}
+          <a href="#" class="profile-link author" data-username="${esc(m.author.username)}" style="color:inherit;text-decoration:none">
+            @${esc(m.author.username)}
+          </a>
+          ${m.author.role === "admin" ? '<span style="color:#e6b800;font-size:10px">[admin]</span>' : ""}
+        </div>
+        <span>${fmtDate(m.created_at)}</span>
+      </div>
+      <img src="${esc(m.image_url)}" alt="" loading="lazy"/>
+      ${m.caption ? `<div class="caption">${esc(m.caption)}</div>` : ""}
+      <div class="actions">
+        <button class="like ${m.liked_by_me ? "liked" : ""}" data-id="${m.id}">
+          ${m.liked_by_me ? "★" : "☆"} ${m.likes_count}
+        </button>
+        <button class="comments-toggle" data-id="${m.id}">
+          💬 ${m.comments_count || 0}
+        </button>
+        ${isOwner || isAdmin
+          ? `<button class="delete" data-id="${m.id}">удалить</button>` : ""}
+      </div>
+      <div class="comments hidden" data-comments-for="${m.id}">
+        <div class="comments-list"></div>
+        ${me ? `
+          <form class="comment-form" data-meme="${m.id}">
+            <input placeholder="комментарий..." maxlength="1000"/>
+            <button type="submit">→</button>
+          </form>
+        ` : `<div style="color:#666;font-size:11px">войдите, чтобы комментировать</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function bindMemeEvents(root) {
+  root.querySelectorAll(".like").forEach(btn => {
+    btn.onclick = async () => {
+      if (!token) { openAuthModal(); return; }
+      try {
+        await api(`/api/posts/${btn.dataset.id}/like`, { method: "POST", headers: headers() });
+        render();
+      } catch (e) { alert(e.message); }
+    };
+  });
+
+  root.querySelectorAll(".delete").forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm("удалить мем?")) return;
+      try {
+        await api(`/api/posts/${btn.dataset.id}`, { method: "DELETE", headers: headers() });
+        render();
+      } catch (e) { alert(e.message); }
+    };
+  });
+
+  root.querySelectorAll(".comments-toggle").forEach(btn => {
+    btn.onclick = async () => {
+      const box = root.querySelector(`.comments[data-comments-for="${btn.dataset.id}"]`);
+      box.classList.toggle("hidden");
+      if (!box.classList.contains("hidden")) {
+        await loadComments(btn.dataset.id, box);
+      }
+    };
+  });
+
+  root.querySelectorAll(".comment-form").forEach(form => {
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const input = form.querySelector("input");
+      const text = input.value.trim();
+      if (!text) return;
+      try {
+        await api(`/api/posts/${form.dataset.meme}/comments`, {
+          method: "POST",
+          headers: { ...headers(), "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        input.value = "";
+        const box = root.querySelector(`.comments[data-comments-for="${form.dataset.meme}"]`);
+        await loadComments(form.dataset.meme, box);
+        render();
+      } catch (e) { alert(e.message); }
+    };
+  });
+
+  root.querySelectorAll(".profile-link").forEach(a => {
+    a.onclick = e => {
+      e.preventDefault();
+      currentView = "profile";
+      currentUsername = a.dataset.username;
+      render();
+    };
+  });
+}
+
+async function loadComments(memeId, box) {
+  const list = box.querySelector(".comments-list");
+  list.innerHTML = "<div style='color:#666;font-size:11px'>загрузка...</div>";
+  try {
+    const items = await api(`/api/posts/${memeId}/comments`);
+    if (!items.length) {
+      list.innerHTML = "<div style='color:#666;font-size:11px'>пока нет комментариев</div>";
+      return;
+    }
+    list.innerHTML = items.map(c => `
+      <div class="comment" data-id="${c.id}">
+        ${avatarHtml(c.author, "sm")}
+        <div class="body">
+          <div class="who">@${esc(c.author.username)} · ${fmtDate(c.created_at)}</div>
+          <div class="txt">${esc(c.text)}</div>
+        </div>
+        ${me && (c.author.username === me.username || me.role === "admin")
+          ? `<button class="del" title="удалить">×</button>` : ""}
+      </div>
+    `).join("");
+    list.querySelectorAll(".del").forEach(b => {
+      b.onclick = async () => {
+        if (!confirm("удалить комментарий?")) return;
+        const id = b.closest(".comment").dataset.id;
+        try {
+          await api(`/api/posts/comments/${id}`, { method: "DELETE", headers: headers() });
+          await loadComments(memeId, box);
+        } catch (e) { alert(e.message); }
+      };
+    });
+  } catch (e) {
+    list.innerHTML = `<div style="color:#f55;font-size:11px">${esc(e.message)}</div>`;
+  }
+}
+
+// ============ PROFILE ============
+async function renderProfile() {
+  const feed = $("feed");
+  feed.innerHTML = "<div class='empty'>загрузка...</div>";
+  try {
+    const u = await api(`/api/users/${currentUsername}`);
+    const memes = await api(`/api/users/${currentUsername}/memes`);
+    const isMe = me && me.username === u.username;
+
+    feed.innerHTML = `
+      <div class="profile-box">
+        <div class="big-avatar">
+          ${u.avatar ? `<img src="${esc(u.avatar)}"/>` : esc(u.username[0])}
+        </div>
+        <div class="profile-info" style="flex:1">
+          <h2>@${esc(u.username)} ${u.role === "admin" ? '<span style="color:#e6b800;font-size:11px">[admin]</span>' : ""}</h2>
+          ${u.status ? `<div class="status">${esc(u.status)}</div>` : ""}
+          ${u.bio ? `<div class="bio">${esc(u.bio)}</div>` : ""}
+          <div style="color:#666;font-size:11px;margin-top:8px">мемов: ${memes.length}</div>
+          ${isMe ? `<button id="editProfile" style="margin-top:12px">редактировать профиль</button>` : ""}
+        </div>
+      </div>
+      <div class="section-title">мемы</div>
+      ${memes.length ? memes.map(renderMemeCard).join("") : "<div class='empty'>пока пусто</div>"}
+    `;
+
+    bindMemeEvents(feed);
+    if (isMe) $("editProfile").onclick = openEditProfile;
+  } catch (e) {
+    feed.innerHTML = `<div class="empty">ошибка: ${esc(e.message)}</div>`;
+  }
+}
+
+function openEditProfile() {
+  $("editAvatar").value = me.avatar || "";
+  $("editStatus").value = me.status || "";
+  $("editBio").value = me.bio || "";
+  $("editError").textContent = "";
+  $("editModal").classList.add("open");
+}
+
+$("editSubmit").onclick = async () => {
+  $("editError").textContent = "";
+  try {
+    const data = await api("/api/me", {
+      method: "PUT",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        avatar: $("editAvatar").value.trim(),
+        status: $("editStatus").value,
+        bio: $("editBio").value,
+      }),
+    });
+    me = data;
+    $("editModal").classList.remove("open");
+    render();
+  } catch (e) { $("editError").textContent = e.message; }
+};
+
+$("editPasswordOpen").onclick = () => {
+  $("editModal").classList.remove("open");
+  $("pwOld").value = "";
+  $("pwNew").value = "";
+  $("pwError").textContent = "";
+  $("pwModal").classList.add("open");
+};
+
+$("pwBack").onclick = () => {
+  $("pwModal").classList.remove("open");
+  openEditProfile();
+};
+
+$("pwSubmit").onclick = async () => {
+  $("pwError").textContent = "";
+  try {
+    await api("/api/me/password", {
+      method: "PUT",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        old_password: $("pwOld").value,
+        new_password: $("pwNew").value,
+      }),
+    });
+    $("pwModal").classList.remove("open");
+    alert("Пароль изменён");
+  } catch (e) { $("pwError").textContent = e.message; }
+};
+
+// ============ ADMIN ============
+async function renderAdmin() {
+  if (!me || me.role !== "admin") {
+    currentView = "feed";
+    return loadFeed();
+  }
+  const feed = $("feed");
+  feed.innerHTML = `
+    <div class="admin-tabs">
+      <button id="atUsers" class="active">пользователи</button>
+      <button id="atPosts">посты</button>
+    </div>
+    <div id="adminBody"></div>
+  `;
+  $("atUsers").onclick = () => adminTab("users");
+  $("atPosts").onclick = () => adminTab("posts");
+  adminTab("users");
+}
+
+async function adminTab(tab) {
+  document.querySelectorAll(".admin-tabs button").forEach(b => b.classList.remove("active"));
+  const btn = document.querySelector(`#at${tab === "users" ? "Users" : "Posts"}`);
+  if (btn) btn.classList.add("active");
+  const body = $("adminBody");
+
+  if (tab === "users") {
+    body.innerHTML = "<div class='empty'>загрузка...</div>";
+    try {
+      const users = await api("/api/admin/users", { headers: headers() });
+      body.innerHTML = `
+        <table class="admin-table">
+          <thead><tr>
+            <th>id</th><th>логин</th><th>роль</th><th>мемов</th><th>статус</th><th>действия</th>
+          </tr></thead>
+          <tbody>
+            ${users.map(u => `
+              <tr class="${u.banned ? "banned" : ""}" data-id="${u.id}">
+                <td>${u.id}</td>
+                <td>@${esc(u.username)}</td>
+                <td>${u.role}</td>
+                <td>${u.memes_count}</td>
+                <td>${u.banned ? "БАН" : "ок"}</td>
+                <td>
+                  <div class="admin-actions">
+                    <button data-act="ban">${u.banned ? "разбан" : "бан"}</button>
+                    <button data-act="reset">сброс пароля</button>
+                    <button data-act="role">${u.role === "admin" ? "снять админа" : "сделать админом"}</button>
+                    <button data-act="del">удалить</button>
+                  </div>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+      body.querySelectorAll("button[data-act]").forEach(b => {
+        b.onclick = () => adminAction(b.closest("tr").dataset.id, b.dataset.act);
+      });
+    } catch (e) { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  } else {
+    body.innerHTML = "<div class='empty'>загрузка...</div>";
+    try {
+      const memes = await api("/api/posts/", { headers: headers() });
+      body.innerHTML = memes.length ? memes.map(m => `
+        <div class="card" data-id="${m.id}">
+          <div class="head">
+            <div class="head-row">${avatarHtml(m.author)} <span>@${esc(m.author.username)}</span></div>
+            <span>id ${m.id} · ${fmtDate(m.created_at)}</span>
+          </div>
+          <img src="${esc(m.image_url)}" style="max-height:200px;object-fit:contain"/>
+          ${m.caption ? `<div class="caption">${esc(m.caption)}</div>` : ""}
+          <div class="actions">
+            <button data-act="boost" data-id="${m.id}">+10 лайков</button>
+            <button data-act="del" data-id="${m.id}">удалить</button>
+          </div>
+        </div>
+      `).join("") : "<div class='empty'>нет постов</div>";
+
+      body.querySelectorAll("button[data-act]").forEach(b => {
+        b.onclick = async () => {
+          const id = b.dataset.id;
+          if (b.dataset.act === "boost") {
+            try {
+              await api(`/api/admin/posts/${id}/boost?count=10`, { method: "POST", headers: headers() });
+              adminTab("posts");
+            } catch (e) { alert(e.message); }
+          } else if (b.dataset.act === "del") {
+            if (!confirm("удалить мем?")) return;
+            try {
+              await api(`/api/admin/posts/${id}`, { method: "DELETE", headers: headers() });
+              adminTab("posts");
+            } catch (e) { alert(e.message); }
+          }
+        };
+      });
+    } catch (e) { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  }
+}
+
+async function adminAction(userId, act) {
+  try {
+    if (act === "ban") {
+      await api(`/api/admin/users/${userId}/ban`, { method: "POST", headers: headers() });
+    } else if (act === "del") {
+      if (!confirm("Удалить пользователя со всеми мемами?")) return;
+      await api(`/api/admin/users/${userId}`, { method: "DELETE", headers: headers() });
+    } else if (act === "reset") {
+      const r = await api(`/api/admin/users/${userId}/reset-password`, { method: "POST", headers: headers() });
+      alert(`Новый пароль для @${r.username}:\n\n${r.new_password}\n\nСохрани его.`);
+    } else if (act === "role") {
+      const tr = document.querySelector(`tr[data-id="${userId}"]`);
+      const cur = tr.children[2].textContent.trim();
+      const next = cur === "admin" ? "user" : "admin";
+      await api(`/api/admin/users/${userId}/set-role?role=${next}`, { method: "POST", headers: headers() });
+    }
+    adminTab("users");
+  } catch (e) { alert(e.message); }
+}
+
+// ============ ROUTER ============
+function render() {
+  if (currentView === "profile") return renderProfile();
+  if (currentView === "admin" && me && me.role === "admin") return renderAdmin();
+  return loadFeed();
+}
+
+$("tabAll").onclick = () => {
+  currentTab = "all";
+  currentView = "feed";
+  $("tabAll").classList.add("active");
+  $("tabMine").classList.remove("active");
+  render();
+};
+
+$("tabMine").onclick = () => {
+  currentTab = "mine";
+  currentView = "feed";
+  $("tabMine").classList.add("active");
+  $("tabAll").classList.remove("active");
+  render();
+};
+
+$("adminBtn").onclick = () => { currentView = "admin"; render(); };
+$("logoHome").onclick = () => {
+  currentView = "feed";
+  $("tabAll").classList.add("active");
+  $("tabMine").classList.remove("active");
+  render();
+};
+
+// ============ UPLOAD ============
+const uploadModal = $("uploadModal"), uploadError = $("uploadError");
 
 $("uploadBtn").onclick = () => {
   uploadError.textContent = "";
@@ -361,119 +917,34 @@ $("uploadSubmit").onclick = async () => {
   const caption = $("memeCaption").value;
   uploadError.textContent = "";
 
-  if (!file) {
-    uploadError.textContent = "выберите картинку";
-    return;
-  }
+  if (!file) { uploadError.textContent = "выберите картинку"; return; }
 
   const fd = new FormData();
   fd.append("file", file);
   fd.append("caption", caption);
 
   try {
-    await api("/api/memes/", { method: "POST", headers: headers(), body: fd });
+    await api("/api/posts/", { method: "POST", headers: headers(), body: fd });
     uploadModal.classList.remove("open");
     $("memeFile").value = "";
     $("memeCaption").value = "";
-    loadFeed();
+    currentView = "feed";
+    render();
   } catch (e) {
     uploadError.textContent = e.message;
   }
 };
 
-// ==== FEED ====
-let currentTab = "all";
-
-async function loadFeed() {
-  const feed = $("feed");
-  feed.innerHTML = "<div class='empty'>загрузка...</div>";
-  try {
-    const path = currentTab === "mine" ? "/api/memes/my" : "/api/memes/";
-    const memes = await api(path, { headers: headers() });
-    if (!memes.length) {
-      feed.innerHTML = "<div class='empty'>пусто</div>";
-      return;
-    }
-    feed.innerHTML = memes.map(m => `
-      <div class="card" data-id="${m.id}">
-        <div class="head">
-          <span class="author">@${escapeHtml(m.author.username)}</span>
-          <span>${fmtDate(m.created_at)}</span>
-        </div>
-        <img src="${m.image_url}" alt="" loading="lazy"/>
-        ${m.caption ? `<div class="caption">${escapeHtml(m.caption)}</div>` : ""}
-        <div class="actions">
-          <button class="like ${m.liked_by_me ? "liked" : ""}" data-id="${m.id}">
-            ${m.liked_by_me ? "★" : "☆"} ${m.likes_count}
-          </button>
-          ${me && m.author.username === me.username
-            ? `<button class="delete" data-id="${m.id}">удалить</button>` : ""}
-        </div>
-      </div>
-    `).join("");
-
-    feed.querySelectorAll(".like").forEach(btn => {
-      btn.onclick = async () => {
-        if (!token) { $("authBtn").click(); return; }
-        try {
-          await api(`/api/memes/${btn.dataset.id}/like`, { method: "POST", headers: headers() });
-          loadFeed();
-        } catch (e) { alert(e.message); }
-      };
-    });
-
-    feed.querySelectorAll(".delete").forEach(btn => {
-      btn.onclick = async () => {
-        if (!confirm("удалить мем?")) return;
-        try {
-          await api(`/api/memes/${btn.dataset.id}`, { method: "DELETE", headers: headers() });
-          loadFeed();
-        } catch (e) { alert(e.message); }
-      };
-    });
-  } catch (e) {
-    feed.innerHTML = `<div class="empty">ошибка: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
-}
-
-function fmtDate(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = (now - d) / 1000;
-  if (diff < 60) return "только что";
-  if (diff < 3600) return Math.floor(diff/60) + " мин";
-  if (diff < 86400) return Math.floor(diff/3600) + " ч";
-  if (diff < 86400*7) return Math.floor(diff/86400) + " д";
-  return d.toLocaleDateString("ru");
-}
-
-$("tabAll").onclick = () => {
-  currentTab = "all";
-  $("tabAll").classList.add("active");
-  $("tabMine").classList.remove("active");
-  loadFeed();
-};
-$("tabMine").onclick = () => {
-  currentTab = "mine";
-  $("tabMine").classList.add("active");
-  $("tabAll").classList.remove("active");
-  loadFeed();
-};
-
-// close modal on backdrop click
-[authModal, uploadModal].forEach(m => {
+// ============ MODAL BACKDROP CLOSE ============
+document.querySelectorAll(".modal").forEach(m => {
   m.onclick = e => { if (e.target === m) m.classList.remove("open"); };
 });
 
-// init
+// ============ INIT ============
 (async () => {
   await loadMe();
   updateUI();
-  loadFeed();
+  render();
 })();
 </script>
 </body>

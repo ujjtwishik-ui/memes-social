@@ -16,10 +16,12 @@ class User(Base):
     avatar: Mapped[str] = mapped_column(Text, default="")
     bio: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(255), default="")
+    theme: Mapped[str] = mapped_column(String(20), default="dark")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     memes: Mapped[list["Meme"]] = relationship(back_populates="author", cascade="all, delete-orphan")
     likes: Mapped[list["Like"]] = relationship(cascade="all, delete-orphan")
+    comments: Mapped[list["Comment"]] = relationship(cascade="all, delete-orphan")
 
 
 class Meme(Base):
@@ -33,6 +35,7 @@ class Meme(Base):
 
     author: Mapped["User"] = relationship(back_populates="memes")
     likes: Mapped[list["Like"]] = relationship(back_populates="meme", cascade="all, delete-orphan")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="meme", cascade="all, delete-orphan")
 
 
 class Like(Base):
@@ -45,3 +48,16 @@ class Like(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     meme: Mapped["Meme"] = relationship(back_populates="likes")
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    meme_id: Mapped[int] = mapped_column(ForeignKey("memes.id", ondelete="CASCADE"), index=True)
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    author: Mapped["User"] = relationship(back_populates="comments")
+    meme: Mapped["Meme"] = relationship(back_populates="comments")
