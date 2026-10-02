@@ -313,6 +313,7 @@
 
 <header>
   <div class="logo" id="logoHome">memes</div>
+  <button id="soundBtn">🔊 звук</button>
   <button id="uploadBtn" class="primary hidden">+ загрузить</button>
   <button id="adminBtn" class="hidden">админка</button>
   <button id="authBtn">войти</button>
@@ -374,11 +375,23 @@
   </div>
 </div>
 
+<!-- ========== SOUND MODAL ========== -->
+<div class="modal" id="soundModal">
+  <div class="box" style="text-align:center">
+    <h3>звук</h3>
+    <iframe width="110" height="200"
+            src="https://www.myinstants.com/instant/muzhiki-aida-pirog-lopat-18120/embed/"
+            frameborder="0" scrolling="no"
+            style="display:block;margin:0 auto"></iframe>
+    <div class="hint" id="soundClose" style="margin-top:16px">закрыть →</div>
+  </div>
+</div>
+
 <script>
 const API = "";
 let token = localStorage.getItem("token");
 let me = null;
-let currentView = "feed"; // feed | profile | admin
+let currentView = "feed";
 let currentUsername = null;
 
 const $ = id => document.getElementById(id);
@@ -934,6 +947,10 @@ $("uploadSubmit").onclick = async () => {
     uploadError.textContent = e.message;
   }
 };
+
+// ============ SOUND ============
+$("soundBtn").onclick = () => $("soundModal").classList.add("open");
+$("soundClose").onclick = () => $("soundModal").classList.remove("open");
 
 // ============ MODAL BACKDROP CLOSE ============
 document.querySelectorAll(".modal").forEach(m => {
