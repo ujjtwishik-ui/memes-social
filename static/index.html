@@ -4,6 +4,16 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>MEMES</title>
+  <script>
+    // Определяем embed-режим максимально рано, до всего остального
+    (function(){
+      var p = new URLSearchParams(location.search);
+      if (p.get('embed') === '1') {
+        window.__memes_is_embed = true;
+        document.documentElement.setAttribute('data-embed', '1');
+      }
+    })();
+  </script>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -300,6 +310,13 @@
     .admin-tabs button { font-size: 10px; }
     .admin-tabs button.active { background: var(--text); color: var(--bg); }
 
+    /* ==== EMBED MODE (попап из игры) ==== */
+    html[data-embed="1"] body header,
+    html[data-embed="1"] body main { display: none !important; }
+    html[data-embed="1"] body { background: #000; }
+    html[data-embed="1"] body .modal { background: #000; }
+    html[data-embed="1"] body .modal .box { max-width: 340px; }
+
     .section-title {
       color: var(--muted);
       font-size: 11px;
@@ -307,13 +324,6 @@
       letter-spacing: 2px;
       margin-bottom: 12px;
     }
-
-    /* ==== EMBED MODE (для попапа из игры) ==== */
-    body.embed-mode header,
-    body.embed-mode main { display: none !important; }
-    body.embed-mode .modal .box { max-width: 340px; }
-    body.embed-mode { background: #000; }
-    body.embed-mode .modal { background: #000; }
   </style>
 </head>
 <body>
@@ -483,6 +493,7 @@ $("authSubmit").onclick = async () => {
     });
     token = data.token;
     localStorage.setItem("token", token);
+    localStorage.setItem("memes_username", data.user.username);
     me = data.user;
     window.__memes_user = data.user.username;
     authModal.classList.remove("open");
@@ -491,7 +502,7 @@ $("authSubmit").onclick = async () => {
     $("authTitle").textContent = registerMode ? "регистрация" : "вход";
     registerMode = false;
 
-    // === NEW: если открыто как попап/iframe — отдаём токен в игру ===
+    // Если открыто как попап/iframe — отдаём токен в игру и закрываемся
     if (window.__memes_relay && window.__memes_relay(token)) {
       return;
     }
@@ -509,6 +520,7 @@ async function loadMe() {
   try {
     me = await api("/api/me", { headers: headers() });
     window.__memes_user = me.username;
+    try { localStorage.setItem("memes_username", me.username); } catch(e){}
   } catch {
     token = null;
     localStorage.removeItem("token");
@@ -518,6 +530,7 @@ async function loadMe() {
 function logout() {
   if (!confirm("выйти из аккаунта?")) return;
   localStorage.removeItem("token");
+  localStorage.removeItem("memes_username");
   token = null;
   me = null;
   currentView = "feed";
@@ -979,9 +992,16 @@ document.querySelectorAll(".modal").forEach(m => {
   await loadMe();
   updateUI();
 
-  // Если открыто как попап/iframe и мы не авторизованы — сразу открываем форму входа
-  if (window.__memes_is_embed && !me) {
-    openAuthModal();
+  if (window.__memes_is_embed) {
+    document.body.classList.add('embed-mode');
+    if (!me) {
+      // Не авторизованы — сразу открываем форму входа
+      openAuthModal();
+    } else {
+      // Уже авторизованы — сразу отдаём токен и закрываемся
+      if (window.__memes_relay) window.__memes_relay(token);
+    }
+    return;
   }
 
   render();
@@ -991,53 +1011,50 @@ document.querySelectorAll(".modal").forEach(m => {
 <!-- === РЕЛЕЙ ТОКЕНА В ИГРУ (popup/iframe) === -->
 <script>
 (function(){
-  const params = new URLSearchParams(location.search);
-  const isEmbed = params.get('embed') === '1';
-  const inPopup = window.opener && !window.opener.closed;
-  const inIframe = window.parent && window.parent !== window;
-
-  if (!isEmbed && !inPopup && !inIframe) return;
-
-  window.__memes_is_embed = true;
-  document.body.classList.add('embed-mode');
+  if (!window.__memes_is_embed) return;
 
   function relay(token){
     if (!token) return false;
-    const msg = {
+    var msg = {
       type: 'memes-auth',
       token: token,
       username: (window.__memes_user || localStorage.getItem('memes_username') || '')
     };
+    var sent = false;
 
-    if (inPopup) {
-      try { window.opener.postMessage(msg, '*'); } catch(e){}
-      try { window.opener.postMessage(token, '*'); } catch(e){}
-      setTimeout(function(){
-        try { window.close(); } catch(e){}
-      }, 700);
-      return true;
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(msg, '*');
+        window.opener.postMessage(token, '*');
+        sent = true;
+      }
+    } catch(e){}
+
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(msg, '*');
+        window.parent.postMessage(token, '*');
+        sent = true;
+      }
+    } catch(e){}
+
+    if (sent && window.opener && !window.opener.closed) {
+      setTimeout(function(){ try { window.close(); } catch(e){} }, 700);
     }
-    if (inIframe) {
-      try { window.parent.postMessage(msg, '*'); } catch(e){}
-      try { window.parent.postMessage(token, '*'); } catch(e){}
-      return true;
-    }
-    return false;
+    return sent;
   }
 
   window.__memes_relay = relay;
 
-  // Если токен уже есть — отдаём сразу
-  const saved = localStorage.getItem('token');
-  if (saved) {
-    setTimeout(function(){ relay(saved); }, 200);
-  }
+  // Если токен уже есть — сразу отдаём
+  var saved = localStorage.getItem('token');
+  if (saved) setTimeout(function(){ relay(saved); }, 300);
 
-  // Слушаем запрос от родителя
+  // Слушаем запрос токена от родителя
   window.addEventListener('message', function(e){
     if (e.data === 'memes-give-token' ||
         (e.data && e.data.type === 'memes-request-token')) {
-      const t = localStorage.getItem('token');
+      var t = localStorage.getItem('token');
       if (t) relay(t);
     }
   });
