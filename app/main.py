@@ -10,6 +10,7 @@ from app.database import engine, Base
 from app import models  # noqa
 from app.routes import auth as auth_routes
 from app.routes import memes as meme_routes
+from app.routes import admin as admin_routes       # ← обязательно
 
 
 @asynccontextmanager
