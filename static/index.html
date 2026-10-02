@@ -307,6 +307,13 @@
       letter-spacing: 2px;
       margin-bottom: 12px;
     }
+
+    /* ==== EMBED MODE (для попапа из игры) ==== */
+    body.embed-mode header,
+    body.embed-mode main { display: none !important; }
+    body.embed-mode .modal .box { max-width: 340px; }
+    body.embed-mode { background: #000; }
+    body.embed-mode .modal { background: #000; }
   </style>
 </head>
 <body>
@@ -477,9 +484,18 @@ $("authSubmit").onclick = async () => {
     token = data.token;
     localStorage.setItem("token", token);
     me = data.user;
+    window.__memes_user = data.user.username;
     authModal.classList.remove("open");
     $("authUsername").value = "";
     $("authPassword").value = "";
+    $("authTitle").textContent = registerMode ? "регистрация" : "вход";
+    registerMode = false;
+
+    // === NEW: если открыто как попап/iframe — отдаём токен в игру ===
+    if (window.__memes_relay && window.__memes_relay(token)) {
+      return;
+    }
+
     updateUI();
     currentView = "feed";
     render();
@@ -492,6 +508,7 @@ async function loadMe() {
   if (!token) return;
   try {
     me = await api("/api/me", { headers: headers() });
+    window.__memes_user = me.username;
   } catch {
     token = null;
     localStorage.removeItem("token");
@@ -961,7 +978,69 @@ document.querySelectorAll(".modal").forEach(m => {
 (async () => {
   await loadMe();
   updateUI();
+
+  // Если открыто как попап/iframe и мы не авторизованы — сразу открываем форму входа
+  if (window.__memes_is_embed && !me) {
+    openAuthModal();
+  }
+
   render();
+})();
+</script>
+
+<!-- === РЕЛЕЙ ТОКЕНА В ИГРУ (popup/iframe) === -->
+<script>
+(function(){
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  const inPopup = window.opener && !window.opener.closed;
+  const inIframe = window.parent && window.parent !== window;
+
+  if (!isEmbed && !inPopup && !inIframe) return;
+
+  window.__memes_is_embed = true;
+  document.body.classList.add('embed-mode');
+
+  function relay(token){
+    if (!token) return false;
+    const msg = {
+      type: 'memes-auth',
+      token: token,
+      username: (window.__memes_user || localStorage.getItem('memes_username') || '')
+    };
+
+    if (inPopup) {
+      try { window.opener.postMessage(msg, '*'); } catch(e){}
+      try { window.opener.postMessage(token, '*'); } catch(e){}
+      setTimeout(function(){
+        try { window.close(); } catch(e){}
+      }, 700);
+      return true;
+    }
+    if (inIframe) {
+      try { window.parent.postMessage(msg, '*'); } catch(e){}
+      try { window.parent.postMessage(token, '*'); } catch(e){}
+      return true;
+    }
+    return false;
+  }
+
+  window.__memes_relay = relay;
+
+  // Если токен уже есть — отдаём сразу
+  const saved = localStorage.getItem('token');
+  if (saved) {
+    setTimeout(function(){ relay(saved); }, 200);
+  }
+
+  // Слушаем запрос от родителя
+  window.addEventListener('message', function(e){
+    if (e.data === 'memes-give-token' ||
+        (e.data && e.data.type === 'memes-request-token')) {
+      const t = localStorage.getItem('token');
+      if (t) relay(t);
+    }
+  });
 })();
 </script>
 </body>
