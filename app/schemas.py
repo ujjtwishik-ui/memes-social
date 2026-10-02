@@ -2,9 +2,12 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+OWNER_USERNAMES = ["lol", "qwyrta"]
+
+
 class UserRegister(BaseModel):
-    username: str = Field(min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
-    password: str = Field(min_length=6, max_length=72)
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=4, max_length=72)
 
 
 class UserLogin(BaseModel):
@@ -15,14 +18,17 @@ class UserLogin(BaseModel):
 class UserOut(BaseModel):
     id: int
     username: str
+    role: str
+    avatar: str = ""
+    bio: str = ""
+    status: str = ""
 
     class Config:
         from_attributes = True
 
 
 class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    token: str
     user: UserOut
 
 

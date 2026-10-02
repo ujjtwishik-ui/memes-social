@@ -300,7 +300,6 @@ function syncAuthMode() {
   $("authSubmit").textContent = registerMode ? "создать" : "войти";
   $("authSwitch").textContent = registerMode ? "есть аккаунт → войти" : "нет аккаунта → регистрация";
 }
-
 $("authSubmit").onclick = async () => {
   const username = $("authUsername").value.trim();
   const password = $("authPassword").value;
@@ -312,13 +311,13 @@ $("authSubmit").onclick = async () => {
   }
 
   try {
-    const endpoint = registerMode ? "/api/auth/register" : "/api/auth/login";
+    const endpoint = registerMode ? "/api/register" : "/api/login";
     const data = await api(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    token = data.access_token;
+    token = data.token;
     localStorage.setItem("token", token);
     me = data.user;
     authModal.classList.remove("open");
@@ -333,12 +332,17 @@ $("authSubmit").onclick = async () => {
 
 async function loadMe() {
   if (!token) return;
-  try { me = await api("/api/auth/me", { headers: headers() }); }
+  try { me = await api("/api/me", { headers: headers() }); }
   catch { token = null; localStorage.removeItem("token"); }
 }
 
 function updateUI() {
-  $("authBtn").textContent = me ? "@" + me.username + " · выход" : "войти";
+  if (me) {
+    const roleTag = me.role === "admin" ? " [admin]" : "";
+    $("authBtn").textContent = "@" + me.username + roleTag + " · выход";
+  } else {
+    $("authBtn").textContent = "войти";
+  }
   $("uploadBtn").classList.toggle("hidden", !me);
   $("tabMine").classList.toggle("hidden", !me);
 }

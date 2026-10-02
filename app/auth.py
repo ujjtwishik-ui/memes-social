@@ -15,7 +15,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 
 def hash_password(password: str) -> str:
@@ -26,9 +26,15 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain[:72], hashed)
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user: User) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(user_id), "exp": expire}
+    payload = {
+        "sub": str(user.id),
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "exp": expire,
+    }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -38,7 +44,7 @@ async def get_current_user(
 ) -> User:
     creds_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Невалидный токен",
+        detail="Нет токена",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -51,11 +57,13 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user:
         raise creds_error
+    if user.banned:
+        raise HTTPException(status_code=403, detail="Вы забанены")
     return user
 
 
 async def get_current_user_optional(
-    token: str | None = Depends(OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)),
+    token: str | None = Depends(OAuth2PasswordBearer(tokenUrl="/api/login", auto_error=False)),
     db: AsyncSession = Depends(get_db),
 ) -> User | None:
     if not token:
@@ -66,4 +74,7 @@ async def get_current_user_optional(
     except (JWTError, TypeError, ValueError):
         return None
     result = await db.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()
+    user = result.scalar_one_or_none()
+    if user and user.banned:
+        return None
+    return user
