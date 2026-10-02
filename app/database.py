@@ -49,7 +49,7 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     # NullPool: новое соединение на каждый запрос, никакого пула.
-    # Это обходит проблему с Neon pooler, который рвёт «мёртвые» соединения.
+    # Это обходит проблему с Neon pooler, который рвёт «мёртвые» соединени.
     poolclass=NullPool,
     connect_args={
         **SSL_CONNECT_ARGS,
