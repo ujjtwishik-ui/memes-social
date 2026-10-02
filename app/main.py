@@ -7,14 +7,13 @@ from fastapi.staticfiles import StaticFiles
 import cloudinary
 
 from app.database import engine, Base
-from app import models  # noqa: F401 — регистрируем модели
+from app import models  # noqa
 from app.routes import auth as auth_routes
 from app.routes import memes as meme_routes
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Автосоздание таблиц при старте
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -28,11 +27,11 @@ cloudinary.config(
     secure=True,
 )
 
-app = FastAPI(title="Memes Social", lifespan=lifespan)
+app = FastAPI(title="Memes", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # на проде замените на список ваших доменов
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,7 +46,6 @@ async def health():
     return {"status": "ok"}
 
 
-# Раздача фронтенда
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 

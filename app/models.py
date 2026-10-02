@@ -10,7 +10,6 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -29,7 +28,6 @@ class Meme(Base):
 
     author: Mapped["User"] = relationship(back_populates="memes")
     likes: Mapped[list["Like"]] = relationship(back_populates="meme", cascade="all, delete-orphan")
-    comments: Mapped[list["Comment"]] = relationship(back_populates="meme", cascade="all, delete-orphan")
 
 
 class Like(Base):
@@ -42,16 +40,3 @@ class Like(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     meme: Mapped["Meme"] = relationship(back_populates="likes")
-
-
-class Comment(Base):
-    __tablename__ = "comments"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    meme_id: Mapped[int] = mapped_column(ForeignKey("memes.id", ondelete="CASCADE"), index=True)
-    text: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    meme: Mapped["Meme"] = relationship(back_populates="comments")
-    author: Mapped["User"] = relationship()

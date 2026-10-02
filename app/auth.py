@@ -12,18 +12,18 @@ from app.models import User
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_change_me")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # неделя
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(password[:72])
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return pwd_context.verify(plain[:72], hashed)
 
 
 def create_access_token(user_id: int) -> str:
@@ -66,4 +66,4 @@ async def get_current_user_optional(
     except (JWTError, TypeError, ValueError):
         return None
     result = await db.execute(select(User).where(User.id == user_id))
-    return result.scalar_one_or_none()  
+    return result.scalar_one_or_none()
